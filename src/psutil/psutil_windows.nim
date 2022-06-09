@@ -332,8 +332,8 @@ proc pid_user*(pid: int): string =
     var dwDomainLength = cast[DWORD](0)
     var dwLength: DWORD
     var dwPid = cast[DWORD](pid)
-    var wcUser: wstring
-    var wcDomain: wstring
+    var wcUser: wstring = newWstring(512)
+    var wcDomain: wstring = newWstring(512)
 
 
     hProcess = OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, dwPid)
@@ -386,8 +386,8 @@ proc try_pid_user*(pid: int): string =
     var dwDomainLength = cast[DWORD](0)
     var dwLength: DWORD
     var dwPid = cast[DWORD](pid)
-    var wcUser: wstring
-    var wcDomain: wstring
+    var wcUser: wstring = newWstring(512)
+    var wcDomain: wstring = newWstring(512)
 
 
     hProcess = OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, dwPid)
@@ -440,8 +440,8 @@ proc pid_domain*(pid: int): string =
     var dwDomainLength = cast[DWORD](512)
     var dwLength: DWORD
     var dwPid = cast[DWORD](pid)
-    var wcUser: wstring
-    var wcDomain: wstring
+    var wcUser: wstring = newWstring(512)
+    var wcDomain: wstring = newWstring(512)
 
 
     hProcess = OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, dwPid)
@@ -488,8 +488,8 @@ proc pid_domain_user*(pid: int): (string, string) =
     var dwDomainLength = cast[DWORD](512)
     var dwLength: DWORD
     var dwPid = cast[DWORD](pid)
-    var wcUser: wstring
-    var wcDomain: wstring
+    var wcUser: wstring = newWstring(512)
+    var wcDomain: wstring = newWstring(512)
 
 
     hProcess = OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, dwPid)
