@@ -58,7 +58,7 @@ proc psutil_get_drive_type*( drive_type: UINT ): string =
 
 proc psutil_get_drive_type*(drive: string): string =
 
-    var drive_type = GetDriveTypeA(cast[LPCSTR](drive))
+    var drive_type = GetDriveTypeW(drive)
     case drive_type
         of DRIVE_FIXED: "fixed"
         of DRIVE_CDROM: "cdrom"
@@ -131,8 +131,8 @@ proc pid_name*(processID: int): string =
     #[
         function for getting the process name of pid
     ]#
-    var szProcessName: array[MAX_PATH, TCHAR]
-    
+    var szProcessName: wstring #array[MAX_PATH, TCHAR]
+
     # szProcessName[0] = cast[TCHAR]("")
 
     #  Get a handle to the process.
@@ -183,7 +183,7 @@ proc pid_names*(pids: seq[int]): seq[string] =
 proc pid_path*(pid: int): string =
 
     var processHandle: HANDLE
-    var filename: array[MAX_PATH, char]
+    var filename: wstring
     var dwSize = MAX_PATH
 
     processHandle = OpenProcess(cast[DWORD](PROCESS_QUERY_INFORMATION or PROCESS_VM_READ), FALSE, 
@@ -222,7 +222,7 @@ proc pid_paths*(pids: seq[int]): seq[string] =
 proc try_pid_path*(pid: int): string =
 
     var processHandle: HANDLE
-    var filename: array[MAX_PATH, char]
+    var filename: wstring
     var dwSize = MAX_PATH
 
     processHandle = OpenProcess(cast[DWORD](PROCESS_QUERY_INFORMATION or PROCESS_VM_READ), FALSE, 
@@ -231,8 +231,8 @@ proc try_pid_path*(pid: int): string =
 
     if processHandle.addr != nil or processHandle == cast[HANDLE](1) or processHandle == cast[HANDLE](NULL):
 
-        if QueryFullProcessImageNameA(processHandle, cast[DWORD](0), filename, cast[PDWORD](dwSize.addr)) == FALSE:
-            
+        if QueryFullProcessImageNameW(processHandle, cast[DWORD](0), filename, cast[PDWORD](dwSize.addr)) == FALSE:
+
             result = ""
 
         else:
@@ -332,8 +332,8 @@ proc pid_user*(pid: int): string =
     var dwDomainLength = cast[DWORD](0)
     var dwLength: DWORD
     var dwPid = cast[DWORD](pid)
-    var wcUser: array[512, TCHAR]
-    var wcDomain: array[512, TCHAR]
+    var wcUser: wstring
+    var wcDomain: wstring
 
 
     hProcess = OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, dwPid)
@@ -386,8 +386,8 @@ proc try_pid_user*(pid: int): string =
     var dwDomainLength = cast[DWORD](0)
     var dwLength: DWORD
     var dwPid = cast[DWORD](pid)
-    var wcUser: array[512, TCHAR]
-    var wcDomain: array[512, TCHAR]
+    var wcUser: wstring
+    var wcDomain: wstring
 
 
     hProcess = OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, dwPid)
@@ -440,8 +440,8 @@ proc pid_domain*(pid: int): string =
     var dwDomainLength = cast[DWORD](512)
     var dwLength: DWORD
     var dwPid = cast[DWORD](pid)
-    var wcUser: array[512, TCHAR]
-    var wcDomain: array[512, TCHAR]
+    var wcUser: wstring
+    var wcDomain: wstring
 
 
     hProcess = OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, dwPid)
@@ -488,8 +488,8 @@ proc pid_domain_user*(pid: int): (string, string) =
     var dwDomainLength = cast[DWORD](512)
     var dwLength: DWORD
     var dwPid = cast[DWORD](pid)
-    var wcUser: array[512, TCHAR]
-    var wcDomain: array[512, TCHAR]
+    var wcUser: wstring
+    var wcDomain: wstring
 
 
     hProcess = OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, dwPid)
