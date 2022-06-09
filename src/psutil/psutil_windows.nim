@@ -21,7 +21,7 @@ const PROCESS_ARCH_X86* = 1     # architecture is 32 bit
 const PROCESS_ARCH_X64* = 2     # architecture is 64 bit
 
 # The last 3 fields are unexposed traditionally so this has the potential
-# to break in the future, but this is how psutil does it too. 
+# to break in the future, but this is how psutil does it too.
 type SYSTEM_PROCESSOR_PERFORMANCE_INFORMATION* {.pure.} = object
     IdleTime*: LARGE_INTEGER
     KernelTime*: LARGE_INTEGER
@@ -31,15 +31,15 @@ type SYSTEM_PROCESSOR_PERFORMANCE_INFORMATION* {.pure.} = object
     InterruptCount*: ULONG
 
 
-proc raiseError() = 
+proc raiseError() =
     var error_message: LPWSTR = newStringOfCap( 256 )
     let error_code = GetLastError()
-    discard FormatMessageW( FORMAT_MESSAGE_FROM_SYSTEM, 
-                            NULL, 
+    discard FormatMessageW( FORMAT_MESSAGE_FROM_SYSTEM,
+                            NULL,
                             error_code,
                             MAKELANGID( LANG_NEUTRAL, SUBLANG_DEFAULT ).DWORD,
-                            error_message, 
-                            256, 
+                            error_message,
+                            256,
                             NULL )
     discard SetErrorMode( 0 )
     raise newException( OSError, "ERROR ($1): $2" % [$error_code, $error_message] )
@@ -79,30 +79,30 @@ proc getnativearch*(): int =
     if pGetNativeSystemInfo.isNil:
         raiseError()
 
-    
+
     case pGetNativeSystemInfo.union1.struct1.wProcessorArchitecture
         of PROCESSOR_ARCHITECTURE_AMD64:
             ## 64 bit (x64)
             # dwNativeArch = PROCESSOR_ARCHITECTURE_AMD64
             nativeArch = PROCESS_ARCH_X64
-        
+
         of PROCESSOR_ARCHITECTURE_IA64:
             # dwNativeArch = PROCESSOR_ARCHITECTURE_IA64
             nativeArch = PROCESS_ARCH_X64
-                            
+
         of PROCESSOR_ARCHITECTURE_INTEL:
             # 32 bit (x86)
             # dwNativeArch = PROCESSOR_ARCHITECTURE_INTEL
             nativeArch = PROCESS_ARCH_X64
-            
+
         else:
             # dwNativeArch  = PROCESSOR_ARCHITECTURE_UNKNOWN
             nativeArch = PROCESS_ARCH_UNKNOWN
 
     return nativeArch
-            
 
-proc pids*(): seq[int] = 
+
+proc pids*(): seq[int] =
     ## Returns a list of PIDs currently running on the system.
     result = newSeq[int]()
 
@@ -115,8 +115,8 @@ proc pids*(): seq[int] =
         procArrayLen += 1024
         procArray = newSeq[DWORD](procArrayLen)
 
-        if EnumProcesses( addr procArray[0], 
-                          DWORD( procArrayLen * sizeof(DWORD) ), 
+        if EnumProcesses( addr procArray[0],
+                          DWORD( procArrayLen * sizeof(DWORD) ),
                           addr enumReturnSz ) == 0:
             raiseError()
             return result
@@ -131,7 +131,7 @@ proc pid_name*(processID: int): string =
     #[
         function for getting the process name of pid
     ]#
-    var szProcessName: wstring #array[MAX_PATH, TCHAR]
+    var szProcessName: wstring = newWstring(MAX_PATH)
 
     # szProcessName[0] = cast[TCHAR]("")
 
@@ -148,7 +148,7 @@ proc pid_name*(processID: int): string =
 
         if EnumProcessModules( hProcess, hMod.addr, cast[DWORD](sizeof(hMod)), cbNeeded.addr):
 
-            GetModuleBaseName( hProcess, hMod, szProcessName, 
+            GetModuleBaseName( hProcess, hMod, szProcessName,
                                cast[DWORD](szProcessName.len) )
 
     else:
@@ -166,7 +166,7 @@ proc pid_name*(processID: int): string =
             break
 
         ret.add(cast[char](c))
-        
+
     return ret
 
 proc pid_names*(pids: seq[int]): seq[string] =
@@ -183,17 +183,17 @@ proc pid_names*(pids: seq[int]): seq[string] =
 proc pid_path*(pid: int): string =
 
     var processHandle: HANDLE
-    var filename: wstring
+    var filename: wstring = newWString(MAX_PATH)
     var dwSize = MAX_PATH
 
-    processHandle = OpenProcess(cast[DWORD](PROCESS_QUERY_INFORMATION or PROCESS_VM_READ), FALSE, 
+    processHandle = OpenProcess(cast[DWORD](PROCESS_QUERY_INFORMATION or PROCESS_VM_READ), FALSE,
         cast[DWORD](pid))
     defer: CloseHandle(processHandle)
 
     if processHandle.addr != nil or processHandle == cast[HANDLE](1) or processHandle == cast[HANDLE](NULL):
 
-        if QueryFullProcessImageNameA(processHandle, cast[DWORD](0), filename, cast[PDWORD](dwSize.addr)) == FALSE:
-            
+        if QueryFullProcessImageNameW(processHandle, cast[DWORD](0), filename, cast[PDWORD](dwSize.addr)) == FALSE:
+
             raiseError()
 
         else:
@@ -204,14 +204,14 @@ proc pid_path*(pid: int): string =
                     break
 
                 ret.add(cast[char](c))
-            
+
             return ret
 
     else:
 
         raiseError()
 
-proc pid_paths*(pids: seq[int]): seq[string] = 
+proc pid_paths*(pids: seq[int]): seq[string] =
 
     var ret: seq[string]
     for pid in pids:
@@ -222,10 +222,10 @@ proc pid_paths*(pids: seq[int]): seq[string] =
 proc try_pid_path*(pid: int): string =
 
     var processHandle: HANDLE
-    var filename: wstring
+    var filename: wstring = newWString(MAX_PATH)
     var dwSize = MAX_PATH
 
-    processHandle = OpenProcess(cast[DWORD](PROCESS_QUERY_INFORMATION or PROCESS_VM_READ), FALSE, 
+    processHandle = OpenProcess(cast[DWORD](PROCESS_QUERY_INFORMATION or PROCESS_VM_READ), FALSE,
         cast[DWORD](pid))
     defer: CloseHandle(processHandle)
 
@@ -243,7 +243,7 @@ proc try_pid_path*(pid: int): string =
                     break
 
                 ret.add(cast[char](c))
-            
+
             return ret
 
     else:
@@ -254,7 +254,7 @@ proc try_pid_paths*(pids: seq[int]): seq[string] =
 
     ## Function to return the paths of the exes (sequence of strings) of the running pids.
     for pid in pids:
-        result.add(try_pid_path(pid)) 
+        result.add(try_pid_path(pid))
 
 proc pid_parent*(pid: int): int =
 
@@ -268,7 +268,7 @@ proc pid_parent*(pid: int): int =
             if cast[int](pe.th32ParentProcessID) == pid:
                 ppid = pe.th32ParentProcessID
                 break
-    
+
     CloseHandle(h);
     return cast[int](ppid)
 
@@ -283,7 +283,7 @@ proc pid_parents*(pids: seq[int]): seq[int] =
 proc pids_with_names*(): (seq[int], seq[string]) =
 
     ## Function for returning tuple of pids and names
-    
+
     var pids_seq = pids()
     var names_seq = pid_names(pids_seq)
 
@@ -305,7 +305,7 @@ proc pid_arch*(pid: int) : int =
     if nativeArch == PROCESS_ARCH_UNKNOWN:
         nativeArch = getnativearch()
 
-   
+
     hProcess = OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, dwPid)
     defer: CloseHandle(hProcess)
     if hProcess == cast[HANDLE](-1):
@@ -320,7 +320,7 @@ proc pid_arch*(pid: int) : int =
         result = PROCESS_ARCH_X86
     else:
         result = nativeArch
-    
+
 proc pid_user*(pid: int): string =
 
     ## Attempt to get the username associated with the given pid.
@@ -354,16 +354,16 @@ proc pid_user*(pid: int): string =
 
     GetTokenInformation(hToken, tokenUser, pUser.addr, cast[DWORD](dwLength), cast[PDWORD](dwLength.addr))
 
-    
+
     if LookupAccountSidW(cast[LPCWSTR](NULL), pUser.User.Sid, wcUser, dwUserLength.addr, wcDomain, dwDomainLength.addr, peUse.addr) == FALSE:
         raiseError()
 
     let user = wcUser[0..^1]
     var retu: string
     for c in user:
-        if cast[char](c) != '\0': 
-            retu.add(cast[char](c)) 
-        else: 
+        if cast[char](c) != '\0':
+            retu.add(cast[char](c))
+        else:
             break
 
     return retu
@@ -408,16 +408,16 @@ proc try_pid_user*(pid: int): string =
 
     GetTokenInformation(hToken, tokenUser, pUser.addr, cast[DWORD](dwLength), cast[PDWORD](dwLength.addr))
 
-    
+
     if LookupAccountSidW(cast[LPCWSTR](NULL), pUser.User.Sid, wcUser, dwUserLength.addr, wcDomain, dwDomainLength.addr, peUse.addr) == FALSE:
         return ""
 
     let user = wcUser[0..^1]
     var retu: string
     for c in user:
-        if cast[char](c) != '\0': 
-            retu.add(cast[char](c)) 
-        else: 
+        if cast[char](c) != '\0':
+            retu.add(cast[char](c))
+        else:
             break
 
     return retu
@@ -460,8 +460,8 @@ proc pid_domain*(pid: int): string =
     ## Get required buffer size and allocate the TOKEN_USER buffer
     GetTokenInformation(hToken, tokenUser, cast[LPVOID](pUser.addr), cast[DWORD](0), cast[PDWORD](dwLength.addr))
 
-    GetTokenInformation(hToken, tokenUser, pUser.addr, cast[DWORD](dwLength), cast[PDWORD](dwLength.addr)) 
-    
+    GetTokenInformation(hToken, tokenUser, pUser.addr, cast[DWORD](dwLength), cast[PDWORD](dwLength.addr))
+
     if LookupAccountSidW(cast[LPCWSTR](NULL), pUser.User.Sid, wcUser, dwUserLength.addr, wcDomain, dwDomainLength.addr, peUse.addr) == FALSE:
         raiseError()
 
@@ -469,9 +469,9 @@ proc pid_domain*(pid: int): string =
     var retd: string
     for c in domain:
 
-        if cast[char](c) != '\0': 
-            retd.add(cast[char](c)) 
-        else: 
+        if cast[char](c) != '\0':
+            retd.add(cast[char](c))
+        else:
             break
 
     return retd
@@ -511,7 +511,7 @@ proc pid_domain_user*(pid: int): (string, string) =
 
     GetTokenInformation(hToken, tokenUser, pUser.addr, cast[DWORD](dwLength), cast[PDWORD](dwLength.addr)) #== FALSE:
         # raiseError()
-    
+
     if LookupAccountSidW(cast[LPCWSTR](NULL), pUser.User.Sid, wcUser, dwUserLength.addr, wcDomain, dwDomainLength.addr, peUse.addr) == FALSE:
         raiseError()
 
@@ -519,9 +519,9 @@ proc pid_domain_user*(pid: int): (string, string) =
     var retu: string
     for c in user:
 
-        if cast[char](c) != '\0': 
-            retu.add(cast[char](c)) 
-        else: 
+        if cast[char](c) != '\0':
+            retu.add(cast[char](c))
+        else:
             break
 
     let domain = wcDomain[0..^1]
@@ -540,13 +540,13 @@ proc disk_partitions*( all=false ): seq[DiskPartition] =
     # avoid to visualize a message box in case something goes wrong
     # see https://github.com/giampaolo/psutil/issues/264
     discard SetErrorMode( SEM_FAILCRITICALERRORS )
-    
+
     var drive_strings = newWString( 256 )
     let returned_len = GetLogicalDriveStringsW( 256, drive_strings )
     if returned_len == 0:
         raiseError()
         return
-    
+
     let letters = split( strip( $drive_strings, chars={'\0'} ), '\0' )
     for drive_letter in letters:
         let drive_type = GetDriveType( drive_letter )
@@ -583,14 +583,14 @@ proc disk_partitions*( all=false ): seq[DiskPartition] =
             SetLastError( 0 )
         else:
             opts = if ( pflags and FILE_READ_ONLY_VOLUME ) != 0: "ro" else: "rw"
-            
+
             if ( pflags and FILE_VOLUME_IS_COMPRESSED ) != 0:
                 opts &= ",compressed"
-                    
+
         if len( opts ) > 0:
             opts &= ","
         opts &= psutil_get_drive_type( drive_type )
-        
+
         result.add( DiskPartition( mountpoint: drive_letter,
                                    device: drive_letter,
                                    fstype: $fs_type, # either FAT, FAT32, NTFS, HPFS, CDFS, UDF or NWFS
@@ -601,7 +601,7 @@ proc disk_partitions*( all=false ): seq[DiskPartition] =
 proc disk_usage*( path: string ): DiskUsage =
     ## Return disk usage associated with path.
     var total, free: ULARGE_INTEGER
-    
+
     let ret_code = GetDiskFreeSpaceExW( path, nil, addr total, addr free )
     if ret_code != 1: raiseError()
 
@@ -611,7 +611,7 @@ proc disk_usage*( path: string ): DiskUsage =
                       free:free.QuadPart.int, percent:percent )
 
 
-proc virtual_memory*(): VirtualMemory = 
+proc virtual_memory*(): VirtualMemory =
     ## System virtual memory
     var memInfo: MEMORYSTATUSEX
     memInfo.dwLength = sizeof(MEMORYSTATUSEX).DWORD
@@ -621,14 +621,14 @@ proc virtual_memory*(): VirtualMemory =
 
     let used = int(memInfo.ullTotalPhys - memInfo.ullAvailPhys)
     let percent =  usage_percent( used, memInfo.ullTotalPhys.int, places=1 )
-    return VirtualMemory( total: memInfo.ullTotalPhys.int,      
-                          avail: memInfo.ullAvailPhys.int,      
-                          percent: percent,  
+    return VirtualMemory( total: memInfo.ullTotalPhys.int,
+                          avail: memInfo.ullAvailPhys.int,
+                          percent: percent,
                           used: used,
                           free: memInfo.ullAvailPhys.int )
 
 
-proc swap_memory*(): SwapMemory = 
+proc swap_memory*(): SwapMemory =
     ## Swap system memory as a (total, used, free, sin, sout)
     var memInfo: MEMORYSTATUSEX
     memInfo.dwLength = sizeof(MEMORYSTATUSEX).DWORD
@@ -643,7 +643,7 @@ proc swap_memory*(): SwapMemory =
     return SwapMemory(total:total, used:used, free:free, percent:percent, sin:0, sout:0)
 
 
-proc toUnixTime(ft: FILETIME): float = 
+proc toUnixTime(ft: FILETIME): float =
     # HUGE thanks to:
     # http://johnstewien.spaces.live.com/blog/cns!E6885DB5CEBABBC8!831.entry
     # This function converts the FILETIME structure to the 32 bit
@@ -658,14 +658,14 @@ proc toUnixTime(ft: FILETIME): float =
     result = int(ll - 116444736000000000) / 10000000
 
 
-proc boot_time*(): float = 
+proc boot_time*(): float =
     ## Return the system boot time expressed in seconds since the epoch
     var fileTime : FILETIME
     GetSystemTimeAsFileTime(addr fileTime)
 
     let pt = toUnixTime(fileTime)
     let uptime = int(GetTickCount64()) / 1000
-    
+
     return pt - uptime
 
 
@@ -674,9 +674,9 @@ proc uptime*(): int =
     int(GetTickCount64().float / 1000.float)
 
 
-proc per_cpu_times*(): seq[CPUTimes] = 
+proc per_cpu_times*(): seq[CPUTimes] =
     ## Return system per-CPU times as a sequence of CPUTimes.
-    
+
     let ncpus = GetActiveProcessorCount(ALL_PROCESSOR_GROUPS)
     if ncpus == 0:
         return result
@@ -710,15 +710,15 @@ proc per_cpu_times*(): seq[CPUTimes] =
         result.add(CPUTimes(user:user, system:system, idle:idle, interrupt:interrupt, dpc:dpc))
 
 
-proc cpu_times*(): CPUTimes = 
-    ## Retrieves system CPU timing information . On a multiprocessor system, 
+proc cpu_times*(): CPUTimes =
+    ## Retrieves system CPU timing information . On a multiprocessor system,
     ## the values returned are the
     ## sum of the designated times across all processors.
 
     var idle_time: FILETIME
     var kernel_time: FILETIME
     var user_time: FILETIME
-    
+
     if GetSystemTimes(addr idle_time, addr kernel_time, addr user_time).bool == false:
         raiseError()
 
@@ -729,8 +729,8 @@ proc cpu_times*(): CPUTimes =
     # Kernel time includes idle time.
     # We return only busy kernel time subtracting idle time from kernel time.
     let system = kernel - idle
-    
-    # Internally, GetSystemTimes() is used, and it doesn't return interrupt and dpc times. 
+
+    # Internally, GetSystemTimes() is used, and it doesn't return interrupt and dpc times.
     # per_cpu_times() does, so we rely on it to get those only.
     let per_times = per_cpu_times()
     let interrupt_sum = sum(per_times.mapIt(it.interrupt))
@@ -738,11 +738,11 @@ proc cpu_times*(): CPUTimes =
     return CPUTimes(user:user, system:system, idle:idle, interrupt:interrupt_sum, dpc:dpc_sum)
 
 
-proc cpu_count_logical*(): int = 
+proc cpu_count_logical*(): int =
     return cast[int](GetActiveProcessorCount(ALL_PROCESSOR_GROUPS))
 
 
-proc cpu_count_physical*(): int = 
+proc cpu_count_physical*(): int =
     var length: DWORD = 0
     var rc = GetLogicalProcessorInformationEx(relationAll, NULL, addr length)
 
@@ -762,15 +762,15 @@ proc cpu_count_physical*(): int =
 
         if currentPtr.Relationship == relationProcessorCore:
             result += 1
-        
+
         # When offset == length, we've reached the last processor info struct in the buffer.
         offset += currentPtr.Size
         prevProcessorInfoSize = currentPtr.Size
-    
+
     dealloc(buffer)
 
 
-type WTS_CONNECTSTATE_CLASS {.pure.} = enum 
+type WTS_CONNECTSTATE_CLASS {.pure.} = enum
     WTSActive,
     WTSConnected,
     WTSConnectQuery,
@@ -785,8 +785,8 @@ type WTS_CONNECTSTATE_CLASS {.pure.} = enum
 
 type WTS_SESSION_INFO = object
     sessionId: DWORD
-    pWinStationName: LPWSTR 
-    state: WTS_CONNECTSTATE_CLASS 
+    pWinStationName: LPWSTR
+    state: WTS_CONNECTSTATE_CLASS
 
 
 type PWTS_SESSION_INFO = ptr WTS_SESSION_INFO
@@ -800,7 +800,7 @@ type WTS_CLIENT_ADDRESS = object
 type PWTS_CLIENT_ADDRESS = ptr WTS_CLIENT_ADDRESS
 
 
-const WTS_CURRENT_SERVER_HANDLE: HANDLE = 0 
+const WTS_CURRENT_SERVER_HANDLE: HANDLE = 0
 
 
 type WTS_INFO_CLASS {.pure.} = enum
@@ -831,32 +831,32 @@ type WTS_INFO_CLASS {.pure.} = enum
     WTSSessionInfo          = 24
 
 
-type WINSTATION_INFO_CLASS = enum  
+type WINSTATION_INFO_CLASS = enum
     WinStationInformation = 8
 
 
 type WINSTATION_INFO = object
     Reserved1: array[72, BYTE]
-    SessionId: ULONG 
+    SessionId: ULONG
     Reserved2: array[4, BYTE]
     ConnectTime: FILETIME
-    DisconnectTime: FILETIME 
-    LastInputTime: FILETIME 
-    LoginTime: FILETIME 
+    DisconnectTime: FILETIME
+    LastInputTime: FILETIME
+    LoginTime: FILETIME
     Reserved3: array[1096, BYTE]
-    CurrentTime: FILETIME 
+    CurrentTime: FILETIME
 
 
 proc WTSEnumerateSessionsW(
-    hServer: HANDLE, 
-    reserved: DWORD, 
-    version: DWORD, 
-    ppSessionInfo: ptr PWTS_SESSION_INFO, 
+    hServer: HANDLE,
+    reserved: DWORD,
+    version: DWORD,
+    ppSessionInfo: ptr PWTS_SESSION_INFO,
     pCount: PDWORD): WINBOOL {.winapi, stdcall, dynlib: "wtsapi32", importc.}
 
 
 proc WTSQuerySessionInformationW(
-    hServer: HANDLE, 
+    hServer: HANDLE,
     sessionId: DWORD,
     wtsInfoClass: WTS_INFO_CLASS,
     ppBuffer: ptr LPWSTR,
@@ -875,12 +875,12 @@ proc WinStationQueryInformation(
     pReturnLength: PULONG): BOOLEAN {.winapi, stdcall, dynlib: "winsta", importc: "WinStationQueryInformationW".}
 
 
-proc getUserForSession(server: HANDLE, sessionId: DWORD): string = 
+proc getUserForSession(server: HANDLE, sessionId: DWORD): string =
     var buffer_user: PWCHAR = NULL
     var bytes: DWORD = 0
     if WTSQuerySessionInformationW(WTS_CURRENT_SERVER_HANDLE, sessionId, WTSUserName, addr buffer_user, addr bytes) == 0:
         raiseError()
-    
+
     if bytes <= 2:
         return ""
 
@@ -889,7 +889,7 @@ proc getUserForSession(server: HANDLE, sessionId: DWORD): string =
     WTSFreeMemory(buffer_user)
 
 
-proc getAddressForSession(server: HANDLE, sessionId: DWORD): string = 
+proc getAddressForSession(server: HANDLE, sessionId: DWORD): string =
     var bytes: DWORD = 0
     var buffer_addr: LPWSTR = NULL
     if WTSQuerySessionInformationW(server, sessionId, WTS_INFO_CLASS.WTSClientAddress, addr buffer_addr, addr bytes) == 0:
@@ -898,24 +898,24 @@ proc getAddressForSession(server: HANDLE, sessionId: DWORD): string =
     let address = cast[PWTS_CLIENT_ADDRESS](buffer_addr).address
     let addressFamily = cast[PWTS_CLIENT_ADDRESS](buffer_addr).addressFamily
 
-    if addressFamily == 0: 
+    if addressFamily == 0:
         result = &"{address[0]}.{address[1]}.{address[2]}.{address[3]}"
 
     WTSFreeMemory(buffer_addr)
 
 
-proc getLoginTimeForSession(server: HANDLE, sessionId: DWORD): float = 
+proc getLoginTimeForSession(server: HANDLE, sessionId: DWORD): float =
     var station_info: WINSTATION_INFO
     var returnLen: ULONG
     if WinStationQueryInformation(server, sessionId, WinStationInformation, addr station_info, sizeof(station_info).ULONG, addr returnLen) == 0:
         return -1
 
     result = toUnixTime(station_info.ConnectTime)
-    
 
-proc users*(): seq[User] = 
+
+proc users*(): seq[User] =
     var count: DWORD = 0
-    var sessions: PWTS_SESSION_INFO 
+    var sessions: PWTS_SESSION_INFO
     if WTSEnumerateSessionsW(WTS_CURRENT_SERVER_HANDLE, 0, 1, addr sessions, addr count) == 0:
         raiseError()
 
@@ -928,31 +928,31 @@ proc users*(): seq[User] =
 
         let address = getAddressForSession(WTS_CURRENT_SERVER_HANDLE, sessionId)
         let login_time = getLoginTimeForSession(WTS_CURRENT_SERVER_HANDLE, sessionId)
-        
+
         result.add(User(name:user, host:address, started:login_time))
 
     WTSFreeMemory(sessions)
 
 
 
-## ToDo - These are all stubbed out so things compile. 
+## ToDo - These are all stubbed out so things compile.
 ## It also shows what needs to be done for feature parity with Linux
-proc cpu_stats*(): tuple[ctx_switches, interrupts, soft_interrupts, syscalls: int] = 
+proc cpu_stats*(): tuple[ctx_switches, interrupts, soft_interrupts, syscalls: int] =
     raise newException( Exception, "Function is unimplemented!")
 
-proc net_connections*( kind= "inet", pid= -1 ): seq[Connection] = 
+proc net_connections*( kind= "inet", pid= -1 ): seq[Connection] =
     raise newException( Exception, "Function is unimplemented!")
 
-proc net_if_addrs*(): Table[string, seq[common.Address]] = 
+proc net_if_addrs*(): Table[string, seq[common.Address]] =
     raise newException( Exception, "Function is unimplemented!")
 
-proc net_if_stats*(): TableRef[string, NICstats] = 
+proc net_if_stats*(): TableRef[string, NICstats] =
     raise newException( Exception, "Function is unimplemented!")
 
-proc per_disk_io_counters*(): TableRef[string, DiskIO] = 
+proc per_disk_io_counters*(): TableRef[string, DiskIO] =
     raise newException( Exception, "Function is unimplemented!")
 
-proc per_nic_net_io_counters*(): TableRef[string, NetIO] = 
+proc per_nic_net_io_counters*(): TableRef[string, NetIO] =
     raise newException( Exception, "Function is unimplemented!")
 
 proc process_exists*(processName: string): bool =
@@ -971,7 +971,7 @@ proc process_exists*(processName: string): bool =
                     break
 
                 name.add(cast[char](c))
-            
+
             if name == processName:
                 exists = true
 
@@ -987,7 +987,7 @@ proc pid_exists*(pid: int): bool =
 
 
 
-proc pid_cmdline*(pid: int): string = 
+proc pid_cmdline*(pid: int): string =
     raise newException( Exception, "Function is unimplemented!")
-    
+
 
