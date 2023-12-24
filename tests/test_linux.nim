@@ -23,7 +23,6 @@ test "test boot time":
 
 
 
-debugEcho pid_user(1)
 quit(0)
 #[
 echo_proc pid_name(1)
