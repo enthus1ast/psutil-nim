@@ -8,29 +8,17 @@ jobs:
     strategy:
       matrix:
         os:
-        - ubuntu-latest
-        - macOS-latest
-        - windows-latest
-        version:
-        - binary:stable
+          - ubuntu-latest
+          - macOS-latest
+          - windows-latest
+        nim:
+          - 'stable'
         # - devel
     steps:
-    - uses: actions/checkout@v2
-    - uses: iffy/install-nim@v5
-      with:
-        version: ${{ matrix.nimversion }}
-    
-    # - name: Install Linux deps
-    #   if: runner.os == 'Linux'
-    #   run: |
-    #     sudo apt-get update -q
-    # - name: Install macOS deps
-    #   if: runner.os == 'macOS'
-    #   run: |
-    #     brew update
-    #     brew install libsodium
-    
-    - name: Test
-      run: |
-        nimble refresh
-        nimble test
+      - uses: actions/checkout@v3
+      - name: Setup nim
+        uses: jiro4989/setup-nim-action@v1
+        with:
+          nim-version: ${{ matrix.nim }}
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - run: nimble test -Y
