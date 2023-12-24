@@ -58,7 +58,7 @@ proc psutil_get_drive_type*( drive_type: UINT ): string =
 
 proc psutil_get_drive_type*(drive: string): string =
 
-    var drive_type = GetDriveTypeA(cast[LPCSTR](drive))
+    var drive_type = GetDriveType(drive)
     case drive_type
         of DRIVE_FIXED: "fixed"
         of DRIVE_CDROM: "cdrom"
