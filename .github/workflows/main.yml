@@ -16,8 +16,8 @@ jobs:
         - stable
         # - devel
     steps:
-    - uses: actions/checkout@v1
-    - uses: iffy/install-nim@v1
+    - uses: actions/checkout@v2
+    - uses: iffy/install-nim@v5
       with:
         nimversion: ${{ matrix.nimversion }}
     
