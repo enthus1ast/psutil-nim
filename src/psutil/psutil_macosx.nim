@@ -184,7 +184,8 @@ proc getfsstat(buf:ptr statfs; bufsize: clong;mode: cint) : cint {.importc: "get
 
 proc sysctl(x: pointer, y: cint, z: pointer,
             a: var csize_t, b: pointer, c: int): cint {.
-            importc: "sysctl", nodecl.}
+            importc: "sysctl", header: """#include <sys/types.h>
+                                      #include <sys/sysctl.h>""".}
 
 proc sysctlbyname(name: cstring; oldp: ptr cint; oldlenp: ptr csize_t;
         newp: pointer; newlen: csize_t): cint {.importc: "sysctl", nodecl.}
