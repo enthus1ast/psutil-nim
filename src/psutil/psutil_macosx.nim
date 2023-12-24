@@ -855,7 +855,6 @@ proc per_disk_io_counters*(): TableRef[string, DiskIO] =
                 #                 "unable to get the parent's properties.");
                 IOObjectRelease(disk)
                 IOObjectRelease(parent)
-                
                 # goto error;
             if IORegistryEntryCreateCFProperties(parent,cast[ptr CFMutableDictionaryRef](props_dict.addr),kCFAllocatorDefault,kNilOptions ) != kIOReturnSuccess:
                 # PyErr_SetString(PyExc_RuntimeError,
@@ -863,7 +862,6 @@ proc per_disk_io_counters*(): TableRef[string, DiskIO] =
                 IOObjectRelease(disk)
                 IOObjectRelease(parent)
                 # goto error;
-                
             if IORegistryEntryCreateCFProperties(parent,cast[ptr CFMutableDictionaryRef](props_dict.addr),kCFAllocatorDefault,kNilOptions ) != kIOReturnSuccess:
                 # PyErr_SetString(PyExc_RuntimeError,
                 #                 "unable to get the parent's properties.");
