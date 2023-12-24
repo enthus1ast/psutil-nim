@@ -9,9 +9,8 @@ jobs:
       matrix:
         os:
         - ubuntu-latest
-        # only Linux currently supported
-        # - macOS-latest
-        # - windows-latest
+        - macOS-latest
+        - windows-latest
         nimversion:
         - stable
         # - devel
