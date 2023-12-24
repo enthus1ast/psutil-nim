@@ -9,3 +9,6 @@ skipDirs      = @["tests"]
 # Dependencies
 requires "nim >= 1.2.6"
 requires "unpack"
+
+when defined(windows):
+  requires "winim"
