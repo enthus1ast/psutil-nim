@@ -14,10 +14,8 @@ template offset*[T](p: ptr T, count: int): ptr T =
     # Actual behavior is wrapping, but this may be revised in the future to enable
     # better optimizations.
     
-    # We turn off checking here - too large counts is UB
-    {.checks: off.}
-    let bytes = count * sizeof(T)
-    cast[ptr T](offset(cast[pointer](p), bytes))
+    let bytes = cast[uint](count) * uint(sizeof(T))
+    cast[ptr T](offset(cast[pointer](p), cast[int](bytes)))
 
 template offset*(p: pointer, bytes: int): pointer =
     ## Offset a memory address by a number of bytes. Behavior is undefined on
@@ -186,7 +184,8 @@ proc getfsstat(buf:ptr statfs; bufsize: clong;mode: cint) : cint {.importc: "get
 
 proc sysctl(x: pointer, y: cint, z: pointer,
             a: var csize_t, b: pointer, c: int): cint {.
-            importc: "sysctl", nodecl.}
+            importc: "sysctl", header: """#include <sys/types.h>
+                                      #include <sys/sysctl.h>""".}
 
 proc sysctlbyname(name: cstring; oldp: ptr cint; oldlenp: ptr csize_t;
         newp: pointer; newlen: csize_t): cint {.importc: "sysctl", nodecl.}
@@ -197,8 +196,8 @@ proc mach_port_deallocate(): void {.importc: "mach_port_deallocate",
         header: "<mach/mach_port.h>", nodecl, varargs.}
 proc mach_task_self(): cint{.importc: "mach_task_self",
         header: "<mach/thread_act.h>", nodecl.}
-proc mach_error_string(): string{.importc: "mach_error_string",
-        header: "<mach/thread_act.h>", nodecl, varargs.}
+proc mach_error_string(): cstring{.importc: "mach_error_string",
+        header: "<mach/mach_error.h>", nodecl, varargs.}
 proc host_statistics(a: mach_port_t; b: cint; c: host_info_t;
         d: ptr mach_msg_type_number_t): cint{.importc: "host_statistics",
                 header: "<mach/mach_host.h>", nodecl, varargs.}
@@ -240,7 +239,7 @@ proc cpu_times*(): CPUTimes =
 
     if error != KERN_SUCCESS:
         raise newException(OSError, "host_statistics(HOST_CPU_LOAD_INFO) syscall failed: $1" %
-                mach_error_string(error))
+                $mach_error_string(error))
     mach_port_deallocate(mach_task_self(), host_port)
 
     result.user = r_load.cpu_ticks[CPU_STATE_USER].cdouble / CLK_TCK
@@ -259,7 +258,7 @@ proc cpu_stats*(): tuple[ctx_switches, interrupts, soft_interrupts,
             vmstat.unsafeAddr), count.unsafeAddr)
     if ret != KERN_SUCCESS:
         raise newException(OSError, "host_statistics(HOST_VM_INFO) syscall failed: $1" %
-        mach_error_string(ret))
+        $mach_error_string(ret))
 
     mach_port_deallocate(mach_task_self(), mport)
 
@@ -297,7 +296,6 @@ proc get_proc_list(procList:ptr ptr StructKinfoProc;
     while lim > 0:
         size = 0
         if sysctl(mib3.addr, 3, nil, size, nil, 0) == -1:
-            debugEcho "get_proc_list sysctl fails"
             # PyErr_SetFromOSErrnoWithSyscall("sysctl(KERN_PROC_ALL)")
             return 1
         size2 = size + (size shr 3) # add some
@@ -313,7 +311,6 @@ proc get_proc_list(procList:ptr ptr StructKinfoProc;
             # PyErr_NoMemory()
             return 1;
         if sysctl(mib3.addr, 3, ptrr, size, nil, 0) == -1:
-            debugEcho "get_proc_list sysctl fails"
             err = errno
             c_free(ptrr)
             if err != ENOMEM:
@@ -345,7 +342,6 @@ proc pids*(): seq[int] =
         discard
     let proclistdupaddr = proclist.addr
     if get_proc_list(proclistdupaddr, num_processes.addr) != 0:
-        debugEcho "get_proc_list fails"
         discard # goto error;
 
     # save the address of proclist so we can free it later
@@ -406,7 +402,7 @@ proc sys_vminfo(vmstat: ptr vm_statistics_data_t): int =
             vmstat), count.addr);
     if (ret != KERN_SUCCESS):
         raise newException(OSError, "host_statistics(HOST_VM_INFO) syscall failed: $1" %
-                mach_error_string(ret))
+                $mach_error_string(ret))
         # return 0
     mach_port_deallocate(mach_task_self(), mport);
     return 1;
@@ -642,7 +638,7 @@ proc per_cpu_times*(): seq[CPUTimes] =
     let error = host_processor_info(host_port, PROCESSOR_CPU_LOAD_INFO,
                                 cpu_count.addr, info_array.addr, info_count.addr)
     if error != KERN_SUCCESS:
-        raise newException(OSError, "host_processor_info(PROCESSOR_CPU_LOAD_INFO) syscall failed: $1" % mach_error_string(error))
+        raise newException(OSError, "host_processor_info(PROCESSOR_CPU_LOAD_INFO) syscall failed: $1" % $mach_error_string(error))
        
     mach_port_deallocate(mach_task_self(), host_port)
     cpu_load_info = cast[ptr processor_cpu_load_info_data_t](info_array)
@@ -777,21 +773,21 @@ proc per_nic_net_io_counters*(): TableRef[string, NetIO] =
 
 proc pid_exists*( pid:int ) :bool = psutil_posix.pid_exists( pid )
 
-{.passC:"-fconstant-cfstrings " .}
+{.passC:"-fconstant-cfstrings" .}
 {.passL: "-framework CoreFoundation -framework IOKit".}
 
 type CFStringEncoding = uint32
 # type CFDictionary {.importc:"CFDictionary",header:"<CoreFoundation/CoreFoundation.h>".} =  object
-type CFDictionaryRef {.importc:"CFDictionaryRef",header:"<CoreFoundation/CoreFoundation.h>",nodecl.} = ref object
+type CFDictionaryRef {.importc:"CFDictionaryRef",header:"<CoreFoundation/CoreFoundation.h>",nodecl.} = ptr object
 # type CFMutableDictionary {.importc:"CFMutableDictionary",header:"<CoreFoundation/CoreFoundation.h>".} =  object
 
-type CFMutableDictionaryRef {.importc:"CFMutableDictionaryRef",header:"<CoreFoundation/CoreFoundation.h>",nodecl.} = ref object
+type CFMutableDictionaryRef {.importc:"CFMutableDictionaryRef",header:"<CoreFoundation/CoreFoundation.h>",nodecl.} = ptr object
 type CFAllocatorRef {.importc:"CFAllocatorRef",header:"<CoreFoundation/CoreFoundation.h>",nodecl.} = object
 type IOOptionBits {.importc:"IOOptionBits",header:"<CoreFoundation/CoreFoundation.h>",nodecl.} = object
 # type CFString {.importc:"CFStringRef",header:"<CoreFoundation/CoreFoundation.h>",nodecl.} =  object
-type CFStringRef {.importc:"CFStringRef",header:"<CoreFoundation/CoreFoundation.h>",nodecl.} = ref  object
+type CFStringRef {.importc:"CFStringRef",header:"<CoreFoundation/CoreFoundation.h>",nodecl.} = ptr  object
 type CFNumber {.importc:"CFNumber",header:"<CoreFoundation/CoreFoundation.h>",nodecl.} = object
-type CFNumberRef {.importc:"CFNumberRef",header:"<CoreFoundation/CoreFoundation.h>",nodecl.} = ref object
+type CFNumberRef {.importc:"CFNumberRef",header:"<CoreFoundation/CoreFoundation.h>",nodecl.} = ptr object
 type CFNumberType {.importc:"CFNumberType",header:"<CoreFoundation/CoreFoundation.h>",nodecl.} = distinct cint
 
 proc CFStringGetCString(theString:CFStringRef,buffer:ptr char,bufferSize:clong ,encoding:CFStringEncoding) {.importc:"CFStringGetCString",header:"<CoreFoundation/CoreFoundation.h>",nodecl.}
@@ -799,7 +795,7 @@ proc CFSTR(str:cstring):cstring{.importc:"CFSTR",header:"<CoreFoundation/CoreFou
 proc CFDictionaryGetValue(theDict:CFDictionaryRef,key:pointer):pointer{.importc:"CFDictionaryGetValue",header:"<CoreFoundation/CoreFoundation.h>",nodecl.} 
 proc CFStringGetSystemEncoding():CFStringEncoding{.importc:"CFStringGetSystemEncoding",header:"<CoreFoundation/CoreFoundation.h>",nodecl.} 
 proc CFNumberGetValue(number:CFNumberRef,theType:CFNumberType,valuePtr:pointer):bool{.importc:"CFNumberGetValue",header:"<CoreFoundation/CoreFoundation.h>",nodecl.} 
-proc CFRelease( cf:ref object){.importc:"CFRelease",header:"<CoreFoundation/CoreFoundation.h>",nodecl.} 
+proc CFRelease( cf:ptr object){.importc:"CFRelease",header:"<CoreFoundation/CoreFoundation.h>",nodecl.} 
 
 var kIOMediaClass{.importc:"kIOMediaClass",header:"<IOKit/storage/IOMedia.h>",nodecl.} :cstring 
 
@@ -843,35 +839,30 @@ proc per_disk_io_counters*(): TableRef[string, DiskIO] =
     var kCFAllocatorDefault:pointer = nil # This is a synonym for NULL.
     # Get list of disks
     if IOServiceGetMatchingServices(kIOMasterPortDefault,  IOServiceMatching(kIOMediaClass),disk_list.addr) != kIOReturnSuccess:
-
         discard
         # PyErr_SetString(
         #     PyExc_RuntimeError, "unable to get the list of disks.");
         # goto error;
     disk = IOIteratorNext(disk_list)
     while cast[cint](disk) != 0:
-
         if (IORegistryEntryGetParentEntry(disk, kIOServicePlane, parent.addr) != kIOReturnSuccess):
             # PyErr_SetString(PyExc_RuntimeError,
             #                 "unable to get the disk's parent.");
-            IOObjectRelease(disk);
+            IOObjectRelease(disk)
             # goto error;
         if IOObjectConformsTo(parent, "IOBlockStorageDriver"):
             if IORegistryEntryCreateCFProperties(disk,cast[ptr CFMutableDictionaryRef](parent_dict.addr),kCFAllocatorDefault,kNilOptions ) != kIOReturnSuccess:
-
                 # PyErr_SetString(PyExc_RuntimeError,
                 #                 "unable to get the parent's properties.");
                 IOObjectRelease(disk)
                 IOObjectRelease(parent)
                 # goto error;
-        
             if IORegistryEntryCreateCFProperties(parent,cast[ptr CFMutableDictionaryRef](props_dict.addr),kCFAllocatorDefault,kNilOptions ) != kIOReturnSuccess:
                 # PyErr_SetString(PyExc_RuntimeError,
                 #                 "unable to get the parent's properties.");
                 IOObjectRelease(disk)
                 IOObjectRelease(parent)
                 # goto error;
-
             if IORegistryEntryCreateCFProperties(parent,cast[ptr CFMutableDictionaryRef](props_dict.addr),kCFAllocatorDefault,kNilOptions ) != kIOReturnSuccess:
                 # PyErr_SetString(PyExc_RuntimeError,
                 #                 "unable to get the parent's properties.");
@@ -881,11 +872,8 @@ proc per_disk_io_counters*(): TableRef[string, DiskIO] =
             var
                 disk_name_ref:CFStringRef = cast[CFStringRef](CFDictionaryGetValue(parent_dict, CFSTR(kIOBSDNameKey)))
                 disk_name:array[kMaxDiskNameSize,char]
-
             CFStringGetCString(disk_name_ref, cast[ptr char](disk_name.addr),kMaxDiskNameSize,CFStringGetSystemEncoding())
-
             stats_dict = cast[CFDictionaryRef](CFDictionaryGetValue(props_dict, CFSTR(kIOBlockStorageDriverStatisticsKey)))
- 
             if isNil(stats_dict.addr):
                 discard
                 # PyErr_SetString(PyExc_RuntimeError,
@@ -922,7 +910,6 @@ proc per_disk_io_counters*(): TableRef[string, DiskIO] =
             number = cast[CFNumberRef](CFDictionaryGetValue( stats_dict, CFSTR(kIOBlockStorageDriverStatisticsTotalWriteTimeKey)))
             if not isNil(number.addr):
                 discard CFNumberGetValue(number, kCFNumberSInt64Type, write_time.addr)
-
             # Read/Write time on macOS comes back in nanoseconds and in psutil
             # we've standardized on milliseconds so do the conversion.
             name = cast[cstring](disk_name.addr)
@@ -946,9 +933,7 @@ proc proc_pidinfo( pid:int, flavor:int, arg:uint64, pti:pointer, size:int ): cin
     var ret:cint
     var retval:int32
     ret =  process_info.proc_pidinfo(pid.cint, flavor.cint, arg, pti, size.cint)
-    debugEcho "proc_pidinfo",ret,"#",retval
     if ((ret <= 0) or (cast[culong](ret) < sizeof(pti).culong) ):
-        debugEcho 111
         #    psutil_raise_for_pid(pid, "proc_pidinfo()")
         return 0
     return ret.cint
@@ -989,7 +974,6 @@ proc net_connections*( kind= "inet", pid= -1 ): seq[Connection] =
                         continue
                         
                     else:
-                        debugEcho "proc_pidfdinfo error"
                         discard
                         # psutil_raise_for_pid(   pid, "proc_pidinfo(PROC_PIDFDSOCKETINFO)");
                         # goto error;
@@ -1018,21 +1002,21 @@ proc net_connections*( kind= "inet", pid= -1 ): seq[Connection] =
                 if family == posix.AF_INET or family == posix.AF_INET6:
                     if (family == posix.AF_INET) :
                         discard inet_ntop(posix.AF_INET,
-                                si.psi.soi_proto.pri_tcp.tcpsi_ini.insi_laddr.ina_46.i46a_addr4.addr,
+                                cast[ptr InAddr](si.psi.soi_proto.pri_tcp.tcpsi_ini.insi_laddr.ina_46.i46a_addr4.addr),
                                 cast[cstring](lip.addr),
                                 sizeof(lip).int32)
                         discard inet_ntop(posix.AF_INET,
-                                si.psi.soi_proto.pri_tcp.tcpsi_ini.insi_faddr.ina_46.i46a_addr4.addr,
+                                cast[ptr InAddr](si.psi.soi_proto.pri_tcp.tcpsi_ini.insi_faddr.ina_46.i46a_addr4.addr),
                                 cast[cstring](rip.addr),
                                 sizeof(rip).int32)
                     else:
                         discard inet_ntop(posix.AF_INET6,
-                                si.psi.soi_proto.pri_tcp.tcpsi_ini.insi_laddr.ina_6.addr,
+                                cast[ptr InAddr](si.psi.soi_proto.pri_tcp.tcpsi_ini.insi_laddr.ina_6.addr),
                                 cast[cstring](lip.addr),
                                 sizeof(lip).int32
                                 )
                         discard inet_ntop(posix.AF_INET6,
-                                si.psi.soi_proto.pri_tcp.tcpsi_ini.insi_faddr.ina_6.addr,
+                                cast[ptr InAddr](si.psi.soi_proto.pri_tcp.tcpsi_ini.insi_faddr.ina_6.addr),
                                 cast[cstring](rip.addr),
                                 sizeof(rip).int32
                                 )
@@ -1040,7 +1024,6 @@ proc net_connections*( kind= "inet", pid= -1 ): seq[Connection] =
                         discard
                         # PyErr_SetFromOSErrnoWithSyscall("inet_ntop()");
                         # goto error;
-                    debugEcho si.psi.soi_proto.pri_tcp.tcpsi_ini.insi_lport,233
                     lport = posix.ntohs(si.psi.soi_proto.pri_tcp.tcpsi_ini.insi_lport.uint16).cint
                     rport = posix.ntohs(si.psi.soi_proto.pri_tcp.tcpsi_ini.insi_fport.uint16).cint
                     if (typ == posix.SOCK_STREAM):
@@ -1052,7 +1035,6 @@ proc net_connections*( kind= "inet", pid= -1 ): seq[Connection] =
                     if not isNil(laddr):
                         discard
                         # goto error;
-                    debugEcho si.psi.soi_proto.pri_un.unsi_caddr.ua_sun.sun_path,444
                     raddr = cast[cstring](si.psi.soi_proto.pri_un.unsi_caddr.ua_sun.sun_path.addr)
                     if not isNil(raddr):
                         discard

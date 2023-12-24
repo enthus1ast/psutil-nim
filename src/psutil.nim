@@ -60,7 +60,7 @@ proc cpu_count*(logical=true): int =
     # If logical is False return the number of physical cores only
     # (e.g. hyper thread CPUs are excluded).
     # Return 0 if undetermined.
-    if logical: platform.cpu_count_logical()
+    if logical: platform.cpu_count_logical().int
     else: platform.cpu_count_physical()
 
 

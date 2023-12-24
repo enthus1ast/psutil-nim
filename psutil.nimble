@@ -8,3 +8,4 @@ skipDirs      = @["tests"]
 
 # Dependencies
 requires "nim >= 1.2.6"
+requires "unpack"

@@ -2,7 +2,7 @@
 import algorithm, math, net, os, posix, sequtils, sets, strutils, tables, times
 import strformat
 import common, psutil_posix
-
+import unpack
 
 ################################################################################
 const PROCFS_PATH = "/proc"
@@ -796,17 +796,17 @@ proc per_disk_io_counters*(): TableRef[string, DiskIO] =
             # Linux 2.4
             name = fields[3]
             reads = parseInt( fields[2] )
-            (reads_merged, rbytes, rtime, writes, writes_merged,
-                wbytes, wtime, ignore1, busy_time, ignore2) = map( fields[4..<14], parseInt )
+            [reads_merged, rbytes, rtime, writes, writes_merged,
+                wbytes, wtime, ignore1, busy_time, ignore2] <- map( fields[4..<14], parseInt )
         elif fields_len == 14:
             # Linux 2.6+, line referring to a disk
             name = fields[2]
-            (reads, reads_merged, rbytes, rtime, writes, writes_merged,
-                wbytes, wtime, ignore1, busy_time, ignore2) = map(fields[3..<14], parseInt)
+            [reads, reads_merged, rbytes, rtime, writes, writes_merged,
+                wbytes, wtime, ignore1, busy_time, ignore2] <- map(fields[3..<14], parseInt)
         elif fields_len == 7:
             # Linux 2.6+, line referring to a partition
             name = fields[2]
-            ( reads, rbytes, writes, wbytes ) = map(fields[3..<7], parseInt)
+            [reads, rbytes, writes, wbytes] <- map(fields[3..<7], parseInt)
         else:
             raise newException( ValueError, "not sure how to interpret line $1" % line )
 

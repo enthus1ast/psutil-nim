@@ -52,10 +52,10 @@ type
     port*: cuchar              ## # 3 bytes spare
 
 type
-  INNER_C_UNION_9261176668105079294* = object {.union.}
+  INNER_C_UNION_9261176668105079294* {.union.} = object
     ifrn_name*: array[IFNAMSIZ, char] ## # Interface name, e.g. "en0".
 
-  INNER_C_UNION_7660000764852079517* = object {.union.}
+  INNER_C_UNION_7660000764852079517* {.union.} = object
     ifru_addr*: SockAddr
     ifru_dstaddr*: SockAddr
     ifru_broadaddr*: SockAddr
@@ -312,7 +312,6 @@ when bsdPlatform:
         copyMem(ifmed.ifm_name.addr,nic_name.cstring,sizeof(ifmed.ifm_name))
         ret = ioctl(sock.FileHandle, SIOCGIFMEDIA, ifmed.addr)
         if ret == -1:
-            debugEcho ret
             speed = 0
             duplex = 0
         else:
