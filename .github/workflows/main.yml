@@ -11,14 +11,14 @@ jobs:
         - ubuntu-latest
         - macOS-latest
         - windows-latest
-        nimversion:
-        - stable
+        version:
+        - binary:stable
         # - devel
     steps:
     - uses: actions/checkout@v2
     - uses: iffy/install-nim@v5
       with:
-        nimversion: ${{ matrix.nimversion }}
+        version: ${{ matrix.nimversion }}
     
     # - name: Install Linux deps
     #   if: runner.os == 'Linux'
